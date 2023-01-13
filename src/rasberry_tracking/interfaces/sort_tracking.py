@@ -246,8 +246,7 @@ class Sort(object):
 class SORTRasberryTracker(): #FruitCastServer
     def __init__(self):
         # Custom code here to generate a tracker
-        # raise NotImplementedError("Please write a custom tracking interface")
-        print("****************MY TRACKER")
+        # raise NotImplementedError("Please write a custom tracking interface")       
         # Subscribe
         self.cam_sub = rospy.Subscriber( 
             "/rasberry_perception/results", Detections, self.get_detector_results 
@@ -261,16 +260,9 @@ class SORTRasberryTracker(): #FruitCastServer
         self.tracker = Sort()
         
        
-        # self.pub = rospy.Publisher("/counter", Int32, queue_size=10)
       
-        
-        # Configure the rasberry_perception chosen backend to operate under the tracker (det generation)
-        # super(SORTRasberryTracker, self).__init__(det_config_file, det_model_file)
-
-    # @function_timer.interval_logger(interval=10)
     def get_detector_results(self, msg):
-        # raise NotImplementedError("Please write a custom tracking interface")
-        print("**************** - tracking get detection results")
+        # raise NotImplementedError("Please write a custom tracking interface")       
         
         dets = []
         detections = msg.objects 
@@ -303,23 +295,7 @@ class SORTRasberryTracker(): #FruitCastServer
         # vis_info = image_info
         # vis_info.header = vis_msg.header
         self.tracked_dets_vis_pub.publish(vis_msg)
-            
-                 
-        # print(updated)
-        
-        
-
-        
-
-        # print(updated)
-        # self.pub.publish(x1) # echo this value for now
-        # response = super(SORTRasberryTracker, self).get_detector_results(request)
-        # Run a custom tracker here
-        # return response
-
-
-# ----
-
+           
 
 def __tracking_runner():
     # Command line arguments should always over ride ros parameters
@@ -330,12 +306,6 @@ def __tracking_runner():
     
     tracker = SORTRasberryTracker()
 
-
-"""TO DO:
- - figure out how to get the bboxes read in (might need to make sure these are actually being published
- - read them in
- - apply sort
- - publish to topics"""
 
 if __name__ == '__main__':
     __tracking_runner()
