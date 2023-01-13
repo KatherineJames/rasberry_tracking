@@ -2,11 +2,11 @@
 <launch>
     <arg name="param_file" default="$(find rasberry_tracking)/config/default.yaml" />
     <arg name="target_frame" default="/sequence_colour_frame" />
-    <arg name="reset_on" default="/sequence_0/info" />  <!-- Reset when this topic is published too (std_msgs/String) -->
+    <arg name="reset_on" default="/sequence_0/info" />  <!--Reset when this topic is published too (std_msgs/String) -->
     <arg name="fps" default="15" />
 
     <group ns="rasberry_tracking">
-            <node name="tracking" pkg="rasberry_tracking" type="rasberry_tracking" output="screen" respawn="true">
+            <node name="tracking" pkg="rasberry_tracking" type="sort_tracking.py" output="screen" respawn="true">
                 <rosparam command="load" file="$(arg param_file)"/>
                 <param name="target_frame" value="$(arg target_frame)" type="string"/>
                 <param name="tracker_frequency" value="$(arg fps)" type="int"/>
