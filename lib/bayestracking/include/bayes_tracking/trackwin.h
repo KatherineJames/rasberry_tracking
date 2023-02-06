@@ -23,7 +23,8 @@
 
 #include "bayes_tracking/BayesFilter/bayesFlt.hpp"
 #include "bayes_tracking/BayesFilter/matSup.hpp"
-#include <opencv/highgui.h>
+#include <opencv2/highgui.hpp>
+#include <opencv2/highgui/highgui_c.h>
 #include <vector>
 #include <string>
 

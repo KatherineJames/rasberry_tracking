@@ -14,11 +14,14 @@ from rasberry_perception.utility import function_timer
 from rasberry_perception.msg import Detections
 from rasberry_perception.visualisation import Visualiser
 from sensor_msgs.msg import Image
+from std_msgs.msg import String
 
 import rospy
 import ros_numpy
 import numpy as np
 from filterpy.kalman import KalmanFilter
+from rospy.exceptions import ROSInterruptException
+
 
 
 # SORT code from from : https://github.com/abewley/sort
@@ -249,18 +252,16 @@ class SORTRasberryTracker(): #FruitCastServer
         # raise NotImplementedError("Please write a custom tracking interface")       
         # Subscribe
         self.cam_sub = rospy.Subscriber( 
-            "/rasberry_perception/results", Detections, self.get_detector_results 
-        ) 
+            "/rasberry_perception/results", Detections, self.get_detector_results)         
 
         # Publish results 
         self.tracked_dets_vis_pub = rospy.Publisher("rasberry_perception/"+ "tracking/track_boxes", Image, queue_size=1)
 
         self.object_counter = 0
 
-        self.tracker = Sort()
-        
-       
-      
+        self.tracker = Sort()          
+    
+
     def get_detector_results(self, msg):
         # raise NotImplementedError("Please write a custom tracking interface")       
         
@@ -287,7 +288,7 @@ class SORTRasberryTracker(): #FruitCastServer
         for i in range(0,len(updated)):
             x1,y1,x2,y2,obj_id = updated[i]
             vis.draw_box([x1, y1, x2, y2], (1,0,0)) 
-            vis.draw_text(f"{obj_id}",[x1,y1])  
+            vis.draw_text(f"{obj_id}",[x1,y1], font_scale=0.5)  
 
         vis_image = vis.get_image(overlay_alpha=0.5)
         vis_msg = ros_numpy.msgify(Image, vis_image, encoding=image_msg.encoding)
@@ -296,21 +297,21 @@ class SORTRasberryTracker(): #FruitCastServer
         # vis_info.header = vis_msg.header
         self.tracked_dets_vis_pub.publish(vis_msg)
            
-
 def __tracking_runner():
     # Command line arguments should always over ride ros parameters
     # service_name = default_service_name
     # _node_name = service_name + "_server"
+    
     _node_name = "tracking"
     rospy.init_node(_node_name)
     
-    tracker = SORTRasberryTracker()
+    tracker = SORTRasberryTracker()  
+    rospy.spin()    
 
-
-if __name__ == '__main__':
+if __name__ == '__main__': 
     __tracking_runner()
     
-    rospy.spin()
+    
     
 
 """

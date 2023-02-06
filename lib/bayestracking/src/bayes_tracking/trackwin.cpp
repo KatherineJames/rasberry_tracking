@@ -136,11 +136,11 @@ void TrackWin::update(int delay, double cameraView, double cx, double cy)
     cvLine(_canvas,  // X axis
            cvPoint(m_xoffset, m_yoffset),
            cvPoint(m_scale + m_xoffset, m_yoffset),
-           CV_RGB(192,192,192), 1);
+           cvScalar(192,192,192), 1);
     cvLine(_canvas,  // Y axis
            cvPoint(m_xoffset, m_yoffset),
            cvPoint(m_xoffset, -m_scale + m_yoffset),
-           CV_RGB(192,192,192), 1);
+           cvScalar(192,192,192), 1);
     // draw all the objects
     for (uint i = 0; i < _objVector.size(); i++) {
         double dx = _objVector[i].x - _x0;
@@ -242,5 +242,5 @@ CvScalar TrackWin::getColor(color_t color)
 
 void TrackWin::saveSnapshot(const char* filename)
 {
-    cvSaveImage(filename, _canvas);
+    cvShowImage(filename, _canvas);
 }

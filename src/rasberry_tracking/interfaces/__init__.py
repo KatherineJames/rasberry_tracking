@@ -5,4 +5,4 @@
 
 from .default_example import DefaultRasberryTracker
 
-__all__ = ["DefaultRasberryTracker"]
+__all__ = ["DefaultRasberryTracker", "SORTRasberryTracker"]
