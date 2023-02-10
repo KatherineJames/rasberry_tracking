@@ -16,6 +16,8 @@ from rasberry_perception.visualisation import Visualiser
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
 
+from scipy.spatial import distance
+
 import rospy
 import ros_numpy
 import numpy as np
@@ -23,8 +25,7 @@ from filterpy.kalman import KalmanFilter
 from rospy.exceptions import ROSInterruptException
 
 
-
-# SORT code from from : https://github.com/abewley/sort
+# SORT code adapted from : https://github.com/abewley/sort
 def linear_assignment(cost_matrix):
   try:
     import lap
@@ -35,20 +36,57 @@ def linear_assignment(cost_matrix):
     x, y = linear_sum_assignment(cost_matrix)
     return np.array(list(zip(x, y)))
 
+def distance_batch(bb_test, bb_gt):
+  """
+  Computes the euclidean distance between two bboxes,each in the form [x1,y1,x2,y2]
+  """  
+  xt1 = bb_test[..., 0]
+  yt1 = bb_test[..., 1]
+  xt2 = bb_test[..., 2]
+  yt2 = bb_test[..., 3] 
+
+  xg1 = bb_gt[..., 0]
+  yg1 = bb_gt[..., 1]
+  xg2 = bb_gt[..., 2]
+  yg2 = bb_gt[..., 3]  
+
+  # find centre of each box
+  w_test = np.maximum(0., xt2 - xt1)
+  h_test = np.maximum(0., yt2 - yt1) 
+  x_test = bb_test[..., 0] + w_test/2.
+  y_test = bb_test[..., 0] + h_test/2.
+
+  w_gt = np.maximum(0., xg2 - xg1)
+  h_gt = np.maximum(0., yg2 - yg1)
+  x_gt = bb_gt[..., 0] + w_gt/2.
+  y_gt = bb_gt[..., 0] + h_gt/2.
+
+  # create list of points to compare
+  p_test = np.column_stack((x_test,y_test))
+  p_gt = np.column_stack((x_gt,y_gt))  
+  # print("test",p_test.shape[0])
+  # print("gt",p_gt.shape[0])
+
+  # compute the distance between the centres
+  D = distance.cdist(p_test,p_gt)
+  return D
 
 def iou_batch(bb_test, bb_gt):
   """
   From SORT: Computes IOU between two bboxes in the form [x1,y1,x2,y2]
-  """
+  """ 
   bb_gt = np.expand_dims(bb_gt, 0)
   bb_test = np.expand_dims(bb_test, 1)
   
-  xx1 = np.maximum(bb_test[..., 0], bb_gt[..., 0])
+  xx1 = np.maximum(bb_test[..., 0], bb_gt[..., 0])  
   yy1 = np.maximum(bb_test[..., 1], bb_gt[..., 1])
   xx2 = np.minimum(bb_test[..., 2], bb_gt[..., 2])
   yy2 = np.minimum(bb_test[..., 3], bb_gt[..., 3])
   w = np.maximum(0., xx2 - xx1)
   h = np.maximum(0., yy2 - yy1)
+  # print(w)
+
+ 
   wh = w * h
   o = wh / ((bb_test[..., 2] - bb_test[..., 0]) * (bb_test[..., 3] - bb_test[..., 1])                                      
     + (bb_gt[..., 2] - bb_gt[..., 0]) * (bb_gt[..., 3] - bb_gt[..., 1]) - wh)                                              
@@ -143,7 +181,7 @@ class KalmanBoxTracker(object):
     return convert_x_to_bbox(self.kf.x)
 
 
-def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
+def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3, dist_threshold = 30):
   """
   Assigns detections to tracked object (both represented as bounding boxes)
 
@@ -152,16 +190,35 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
   if(len(trackers)==0):
     return np.empty((0,2),dtype=int), np.arange(len(detections)), np.empty((0,5),dtype=int)
 
-  iou_matrix = iou_batch(detections, trackers)
+  iou_compare = False  
+  
+  if iou_compare:
+    iou_matrix = iou_batch(detections, trackers) 
+    if min(iou_matrix.shape) > 0:
+      a = (iou_matrix > iou_threshold).astype(np.int32) # get the indices where there is a match
+      # print(multiple)
+      if a.sum(1).max() == 1 and a.sum(0).max() == 1:
+        matched_indices = np.stack(np.where(a), axis=1)
+      else:
+        matched_indices = linear_assignment(-iou_matrix)
+        # print(matched_indices)
+    else:
+      matched_indices = np.empty(shape=(0,2))
 
-  if min(iou_matrix.shape) > 0:
-    a = (iou_matrix > iou_threshold).astype(np.int32)
+  else: # use euclidean distance between centres
+    dist_matrix = distance_batch(detections,trackers)    
+    argmin = np.argmin(dist_matrix,axis=1)   
+    a = np.zeros(dist_matrix.shape)   
+    for i in range(0,a.shape[0]):   
+      if dist_matrix[i,argmin[i]] < dist_threshold:
+        a[i,argmin[i]]  = 1
+    
     if a.sum(1).max() == 1 and a.sum(0).max() == 1:
         matched_indices = np.stack(np.where(a), axis=1)
     else:
-      matched_indices = linear_assignment(-iou_matrix)
-  else:
-    matched_indices = np.empty(shape=(0,2))
+      matched_indices = linear_assignment(-dist_matrix)      
+  
+  
 
   unmatched_detections = []
   for d, det in enumerate(detections):
@@ -173,9 +230,10 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
       unmatched_trackers.append(t)
 
   #filter out matched with low IOU
+  
   matches = []
   for m in matched_indices:
-    if(iou_matrix[m[0], m[1]]<iou_threshold):
+    if iou_compare and (iou_matrix[m[0], m[1]]<iou_threshold):
       unmatched_detections.append(m[0])
       unmatched_trackers.append(m[1])
     else:
