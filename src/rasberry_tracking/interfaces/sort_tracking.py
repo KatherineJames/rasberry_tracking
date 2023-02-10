@@ -39,7 +39,7 @@ def linear_assignment(cost_matrix):
 def distance_batch(bb_test, bb_gt):
   """
   Computes the euclidean distance between two bboxes,each in the form [x1,y1,x2,y2]
-  """  
+  """   
   xt1 = bb_test[..., 0]
   yt1 = bb_test[..., 1]
   xt2 = bb_test[..., 2]
@@ -51,21 +51,19 @@ def distance_batch(bb_test, bb_gt):
   yg2 = bb_gt[..., 3]  
 
   # find centre of each box
-  w_test = np.maximum(0., xt2 - xt1)
+  w_test = np.maximum(0., xt2 - xt1) 
   h_test = np.maximum(0., yt2 - yt1) 
-  x_test = bb_test[..., 0] + w_test/2.
-  y_test = bb_test[..., 0] + h_test/2.
+  x_test = xt1 + w_test/2.
+  y_test = yt1 + h_test/2. 
 
   w_gt = np.maximum(0., xg2 - xg1)
   h_gt = np.maximum(0., yg2 - yg1)
-  x_gt = bb_gt[..., 0] + w_gt/2.
-  y_gt = bb_gt[..., 0] + h_gt/2.
+  x_gt = xg1 + w_gt/2.
+  y_gt = yg1 + h_gt/2.
 
   # create list of points to compare
   p_test = np.column_stack((x_test,y_test))
   p_gt = np.column_stack((x_gt,y_gt))  
-  # print("test",p_test.shape[0])
-  # print("gt",p_gt.shape[0])
 
   # compute the distance between the centres
   D = distance.cdist(p_test,p_gt)
@@ -206,7 +204,8 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3, di
       matched_indices = np.empty(shape=(0,2))
 
   else: # use euclidean distance between centres
-    dist_matrix = distance_batch(detections,trackers)    
+    dist_matrix = distance_batch(detections,trackers) 
+     
     argmin = np.argmin(dist_matrix,axis=1)   
     a = np.zeros(dist_matrix.shape)   
     for i in range(0,a.shape[0]):   
@@ -217,7 +216,6 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3, di
         matched_indices = np.stack(np.where(a), axis=1)
     else:
       matched_indices = linear_assignment(-dist_matrix)      
-  
   
 
   unmatched_detections = []
