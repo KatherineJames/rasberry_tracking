@@ -23,6 +23,7 @@ import ros_numpy
 import numpy as np
 from filterpy.kalman import KalmanFilter
 from rospy.exceptions import ROSInterruptException
+import cv2
 
 
 # SORT code adapted from : https://github.com/abewley/sort
@@ -48,11 +49,11 @@ def distance_batch(bb_test, bb_gt):
   xg1 = bb_gt[..., 0]
   yg1 = bb_gt[..., 1]
   xg2 = bb_gt[..., 2]
-  yg2 = bb_gt[..., 3]  
+  yg2 = bb_gt[..., 3]    
 
   # find centre of each box
   w_test = np.maximum(0., xt2 - xt1) 
-  h_test = np.maximum(0., yt2 - yt1) 
+  h_test = np.maximum(0., yt2 - yt1)   
   x_test = xt1 + w_test/2.
   y_test = yt1 + h_test/2. 
 
@@ -179,7 +180,7 @@ class KalmanBoxTracker(object):
     return convert_x_to_bbox(self.kf.x)
 
 
-def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3, dist_threshold = 30):
+def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3, dist_threshold = 50): # strawberry box width 30-100
   """
   Assigns detections to tracked object (both represented as bounding boxes)
 
@@ -313,14 +314,18 @@ class SORTRasberryTracker(): #FruitCastServer
         # Publish results 
         self.tracked_dets_vis_pub = rospy.Publisher("rasberry_perception/"+ "tracking/track_boxes", Image, queue_size=1)
 
-        self.object_counter = 0
+        self.fruit_count = 0
 
         self.tracker = Sort()          
     
 
     def get_detector_results(self, msg):
         # raise NotImplementedError("Please write a custom tracking interface")       
-        
+        image_msg = msg.camera_frame
+        img = ros_numpy.numpify(image_msg)
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        vis = Visualiser(img) 
+
         dets = []
         detections = msg.objects 
         
@@ -331,27 +336,48 @@ class SORTRasberryTracker(): #FruitCastServer
             y1 = roi.y1
             y2 = roi.y2
             score = detections[i].confidence
+            vis.draw_box([x1, y1, x2, y2], (1,1,0), fill = True) 
             dets.append([x1,y1,x2,y2,score])
 
         if len(detections) == 0:
             dets = np.empty((0, 5))
         
-        updated = self.tracker.update(dets = np.array(dets))
+        updated = self.tracker.update(dets = np.array(dets))    
 
-        image_msg = msg.camera_frame
-        vis = Visualiser(ros_numpy.numpify(image_msg))
-
+        self.fruit_count += len(updated)        
+          
         for i in range(0,len(updated)):
-            x1,y1,x2,y2,obj_id = updated[i]
+            x1,y1,x2,y2,obj_id = updated[i]            
             vis.draw_box([x1, y1, x2, y2], (1,0,0)) 
-            vis.draw_text(f"{obj_id}",[x1,y1], font_scale=0.5)  
+            vis.draw_text(f"{obj_id}",[x1,y1], font_scale=0.5)
 
-        vis_image = vis.get_image(overlay_alpha=0.5)
+        # vis.draw_fruit_count_box(100000) 
+        
+        vis.draw_fruit_count_box(self.fruit_count)
+
+        vis_image = vis.get_image(overlay_alpha=0.5)        
         vis_msg = ros_numpy.msgify(Image, vis_image, encoding=image_msg.encoding)
         # vis_msg.header = image_msg.header
         # vis_info = image_info
         # vis_info.header = vis_msg.header
+
         self.tracked_dets_vis_pub.publish(vis_msg)
+        
+        # print(msg.camera_info.header)
+
+        # dev        
+        for i in range(0,len(detections)):
+          roi = detections[i].roi
+          x1 = int(roi.x1)
+          x2 = int(roi.x2)
+          y1 = int(roi.y1)
+          y2 = int(roi.y2)        
+          # vis.draw_box([x1, y1, x2, y2], (1,1,0), fill = True)           
+          cv2.rectangle(vis_image, (x1, y1), (x2, y2), (255,0,0), 1)  
+
+           
+       
+        # cv2.imwrite(f"/home/katherine/Documents/Code/RA_workspace/src/rasberry_tracking/src/rasberry_tracking/interfaces/dev/{msg.camera_info.header.seq}.jpg",vis_image)
            
 def __tracking_runner():
     # Command line arguments should always over ride ros parameters
